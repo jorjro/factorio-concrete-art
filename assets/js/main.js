@@ -25,7 +25,7 @@ var OBJECT_LIST_VANILLA = [
     {'type':ENTITY, 'name':"heat-pipe", 'r':58, 'g':129, 'b':173}, 
     {'type':ENTITY, 'name':"pipe", 'r':66, 'g':129, 'b':164}, 
     {'type':ENTITY, 'name':"gate", 'r':123, 'g':125, 'b':123}, 
-    {'type':ENTITY, 'name':"lamp", 'r':0, 'g':97, 'b':148},
+    {'type':ENTITY, 'name':"small-lamp", 'r':0, 'g':97, 'b':148},
     {'type':TILE,   'name':"stone-path",    'r':82, 'g':81, 'b':74},
     {'type':TILE,   'name':"concrete",       'r':58, 'g':61, 'b':58},
     {'type':TILE,   'name':"refined-concrete",    'r':49, 'g':49, 'b':41},
