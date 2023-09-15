@@ -19,6 +19,19 @@ var TILE = 2;
 var INPUT_LIST = []
 var OBJECT_LIST_VANILLA = [
     //VANILLA
+    {'type':ENTITY, 'name':"stone-wall",     'r':206, 'g':219, 'b':206}, 
+    {'type':ENTITY, 'name':"transport-belt", 'r':206, 'g':162, 'b':66}, 
+    {'type':ENTITY, 'name':"underground-belt", 'r':115, 'g':89, 'b':0}, 
+    {'type':ENTITY, 'name':"heat-pipe", 'r':58, 'g':129, 'b':173}, 
+    {'type':ENTITY, 'name':"pipe", 'r':66, 'g':129, 'b':164}, 
+    {'type':ENTITY, 'name':"gate", 'r':123, 'g':125, 'b':123}, 
+    {'type':ENTITY, 'name':"lamp", 'r':0, 'g':97, 'b':148},
+    {'type':TILE,   'name':"stone-path",    'r':82, 'g':81, 'b':74},
+    {'type':TILE,   'name':"concrete",       'r':58, 'g':61, 'b':58},
+    {'type':TILE,   'name':"refined-concrete",    'r':49, 'g':49, 'b':41},
+    {'type':TILE,   'name':"hazard-concrete-left",         'r':181, 'g':142, 'b':33},
+    {'type':TILE,   'name':"refined-hazard-concrete-left", 'r':115, 'g':93, 'b':25}]
+    /* values for a mod I cant remember the name of..
     {'type':ENTITY, 'name':"stone-wall",     'r':206, 'g':219, 'b':206},   
     {'type':ENTITY, 'name':"transport-belt", 'r':255, 'g':186, 'b':0}, 
     {'type':ENTITY, 'name':"underground-belt", 'r':173, 'g':129, 'b':0}, 
@@ -34,7 +47,7 @@ var OBJECT_LIST_VANILLA = [
     {'type':TILE,   'name':"concrete",       'r':58, 'g':61, 'b':58},
     {'type':TILE,   'name':"refined-concrete",    'r':49, 'g':49, 'b':41},
     {'type':TILE,   'name':"hazard-concrete-left",         'r':181, 'g':142, 'b':33},
-    {'type':TILE,   'name':"refined-hazard-concrete-left", 'r':115, 'g':93, 'b':25}]
+    {'type':TILE,   'name':"refined-hazard-concrete-left", 'r':115, 'g':93, 'b':25}]*/
 var OBJECT_LIST_DECTORIO = [
     //DECTORIO
     {'type':TILE,   'name':"dect-coal-gravel",    'r':82, 'g':85, 'b':82}, 
