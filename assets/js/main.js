@@ -11,8 +11,8 @@ var conversionState = {
     'timeout': null
 }
 var use_entities = true;
-var resolution_x = 300;
-var resolution_y = 300;
+var resolution_x = 0;
+var resolution_y = 0;
 
 var ENTITY = 1;
 var TILE = 2;
@@ -312,6 +312,10 @@ function conversionStep() {
 
 function imageLoaded(e) {
   console.log("Loaded");
+
+  resolution_x = document.getElementById("resx").value
+  resolution_y = document.getElementById("resy").value
+
   INPUT_LIST = []
     var childelements = document.getElementById("itemlist").children
     for (var x = 0; x < childelements.length; x++) {
