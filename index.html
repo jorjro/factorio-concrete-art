@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>Untitled</title>
+    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+
+<body>
+    <div class="container" style="height: 524px;width: 1382px;">
+        <div class="row g-0 align-items-start" style="width: 1031px;height: 534px;">
+            <div class="col flex-shrink-1" style="height: 507px;width: 383px;"><input type="file" id="inputImage" name="inputImage" onchange="loadImage(this)"><canvas id="testCanvas" style="border: 1px solid black;">Your Browser does not support canvas</canvas><textarea id="o" style="width: 301px;"></textarea></div>
+            <div class="col offset-xl-0 flex-grow-1" style="width: 634.5px;">
+                <div class="row">
+                    <div class="col"><input type="checkbox" style="margin-right: 4px;margin-left: 4px;margin-bottom: 10px;" onclick="updateVanillaItems(this)"><span style="margin-right: 4px;margin-left: 4px;margin-bottom: 10px;">Vanilla</span><input type="checkbox" style="margin-right: 4px;margin-left: 4px;margin-bottom: 10px;" onclick="updateDectorioItems(this)"><span style="margin-right: 4px;margin-left: 4px;margin-bottom: 10px;">Dectorio</span><input type="checkbox" style="margin-right: 4px;margin-left: 4px;margin-bottom: 10px;" onclick="updateColorCodingItems(this)"><span style="margin-right: 4px;margin-left: 4px;margin-bottom: 10px;">Color Coding Plus</span></div>
+                </div><span>Check out my mom, color coding plus!</span>
+                <ul class="list-unstyled text-start" id="itemlist">
+                    <li class="text-nowrap flex-grow-1 flex-shrink-0" id="original"><input type="checkbox" style="margin-right: 4px;margin-left: 4px;" checked=""><select class="select" style="width: 89.188px;">
+                            <option value="tile" selected="">tile</option>
+                            <option value="entity">entity</option>
+                        </select><span style="margin-right: 4px;margin-left: 4px;">name:</span><input type="text" class="name" style="margin-right: 4px;margin-left: 4px;width: 200.219px;"><span style="margin-right: 4px;margin-left: 4px;">color:</span><input type="color" class="color" style="margin-right: 4px;margin-left: 4px;"><button class="btn btn-light active btn-sm" type="button" onclick="return this.parentNode.remove();">remove</button></li>
+                </ul><button class="btn btn-primary" type="button" onclick="addItemForm()">+</button>
+            </div>
+        </div>
+    </div>
+    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
+    <script src="assets/js/base64.js"></script>
+    <script src="assets/js/jquery-3.js"></script>
+    <script src="assets/js/main.js"></script>
+    <script src="assets/js/pako.js"></script>
+</body>
+
+</html>
