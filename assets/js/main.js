@@ -1,16 +1,20 @@
 
+
 /** this variable holds the conversion state
  *  for the image to blueprint conversion.
  */
 var conversionState = {
     'filename': "empty", ///< filename of the original image
     'canvas': null,      ///< the canvas holding the image to be converted
+    'previewcanvas': null,
+    'previewimagearray': null,
     'currentY': 0,
     'entities': [],
     'tiles': [],
-    'timeout': null
+    'timeout': null,
+    'error-right': 0,
 }
-var use_entities = true;
+var use_entities;
 var resolution_x = 0;
 var resolution_y = 0;
 
@@ -31,7 +35,7 @@ var OBJECT_LIST_VANILLA = [
     {'type':TILE,   'name':"refined-concrete",    'r':49, 'g':49, 'b':41},
     {'type':TILE,   'name':"hazard-concrete-left",         'r':181, 'g':142, 'b':33},
     {'type':TILE,   'name':"refined-hazard-concrete-left", 'r':115, 'g':93, 'b':25}]
-    /* values for a mod I cant remember the name of..
+    /* default values for the mod Enhanced Map Colors
     {'type':ENTITY, 'name':"stone-wall",     'r':206, 'g':219, 'b':206},   
     {'type':ENTITY, 'name':"transport-belt", 'r':255, 'g':186, 'b':0}, 
     {'type':ENTITY, 'name':"underground-belt", 'r':173, 'g':129, 'b':0}, 
@@ -62,7 +66,7 @@ var OBJECT_LIST_DECTORIO = [
     {'type':TILE,   'name':"dect-paint-refined-radiation-left",    'r':222, 'g':142, 'b':197}, 
     {'type':TILE,   'name':"dect-paint-defect-left",    'r':115, 'g':125, 'b':255}, 
     {'type':TILE,   'name':"dect-paint-refined-operations-left",    'r':90, 'g':93, 'b':90}, 
-    {'type':TILE,   'name':"dect-paint-refined-safety-left",    'r':156, 'g':198, 'b':99}]
+    {'type':TILE,   'name':"dect-paint-refined-safety-left",    'r':156, 'g':198, 'b':99},
     /*{'type':TILE,   'name':"dect-base-dirt-1",    'r':140, 'g':105, 'b':58}, 
     {'type':TILE,   'name':"dect-base-dirt-2",    'r':140, 'g':97, 'b':58}, 
     {'type':TILE,   'name':"dect-base-dirt-3",    'r':132, 'g':93, 'b':49}, 
@@ -72,8 +76,9 @@ var OBJECT_LIST_DECTORIO = [
     {'type':TILE,   'name':"dect-base-dry-dirt",    'r':90, 'g':65, 'b':33}, 
     {'type':TILE,   'name':"dect-base-grass-1",    'r':49, 'g':53, 'b':8}, 
     {'type':TILE,   'name':"dect-base-grass-1",    'r':66, 'g':57, 'b':8}, THESE CANT BE BLUEPRINTED*/
-    //note these are technically vanilla but dectorio gives them a recipe
-    /*{'type':TILE,   'name':"acid-refined-concrete",      'r':140, 'g':194, 'b':41}, 
+    //note these are vanilla but dectorio gives them a recipe
+    //these look the same as the concrete versions below, but more expensive
+    {'type':TILE,   'name':"acid-refined-concrete",      'r':140, 'g':194, 'b':41}, 
     {'type':TILE,   'name':"black-refined-concrete",      'r':25, 'g':24, 'b':25},
     {'type':TILE,   'name':"blue-refined-concrete",      'r':33, 'g':138, 'b':230},
     {'type':TILE,   'name':"brown-refined-concrete",      'r':74, 'g':28, 'b':0},
@@ -83,7 +88,7 @@ var OBJECT_LIST_DECTORIO = [
     {'type':TILE,   'name':"pink-refined-concrete",      'r':238, 'g':97, 'b':132},
     {'type':TILE,   'name':"purple-refined-concrete",      'r':123, 'g':28, 'b':173},
     {'type':TILE,   'name':"red-refined-concrete",      'r':206, 'g':4, 'b':0},
-    {'type':TILE,   'name':"yellow-refined-concrete",      'r':214, 'g':170, 'b':16},these look the same as the concrete versions below, but more expensive*/
+    {'type':TILE,   'name':"yellow-refined-concrete",      'r':214, 'g':170, 'b':16}]
     //COLOR CODING 
 var OBJECT_LIST_COLORCODING = [
     {'type':TILE,   'name':"stone-path-red",      'r':230, 'g':129, 'b':123},
@@ -190,28 +195,121 @@ var OBJECT_LIST_COLORCODING = [
     {'type':ENTITY,   'name':"stone-wall-plum",    'r':49, 'g':36, 'b':49} 
 ];
 
-/** Creates an object structure from the given color */
-function objectFromColor(imageData, offset) {
-    var r = imageData.data[offset + 0];
-    var g = imageData.data[offset + 1];
-    var b = imageData.data[offset + 2];
-    var a = imageData.data[offset + 3];
-    var objectr = INPUT_LIST[0];
+function contrastImage(imgData, contrast){  //input range [-100..100]
+    var d = imgData.data;
+    contrast = (contrast/100) + 1;  //convert to decimal & shift range: [0..2]
+    var intercept = 128 * (1 - contrast);
+    for(var i=0;i<d.length;i+=4){   //r,g,b,a
+        d[i] = d[i]*contrast + intercept;
+        d[i+1] = d[i+1]*contrast + intercept;
+        d[i+2] = d[i+2]*contrast + intercept;
+    }
+    return imgData;
+}
 
-    if (a < 128) // transparent pixels don't get an entity
-        return null;
+function lab2rgb(lab){
+    var y = (lab[0] + 16) / 116,
+        x = lab[1] / 500 + y,
+        z = y - lab[2] / 200,
+        r, g, b;
+  
+    x = 0.95047 * ((x * x * x > 0.008856) ? x * x * x : (x - 16/116) / 7.787);
+    y = 1.00000 * ((y * y * y > 0.008856) ? y * y * y : (y - 16/116) / 7.787);
+    z = 1.08883 * ((z * z * z > 0.008856) ? z * z * z : (z - 16/116) / 7.787);
+  
+    r = x *  3.2406 + y * -1.5372 + z * -0.4986;
+    g = x * -0.9689 + y *  1.8758 + z *  0.0415;
+    b = x *  0.0557 + y * -0.2040 + z *  1.0570;
+  
+    r = (r > 0.0031308) ? (1.055 * Math.pow(r, 1/2.4) - 0.055) : 12.92 * r;
+    g = (g > 0.0031308) ? (1.055 * Math.pow(g, 1/2.4) - 0.055) : 12.92 * g;
+    b = (b > 0.0031308) ? (1.055 * Math.pow(b, 1/2.4) - 0.055) : 12.92 * b;
+  
+    return [Math.max(0, Math.min(1, r)) * 255, 
+            Math.max(0, Math.min(1, g)) * 255, 
+            Math.max(0, Math.min(1, b)) * 255]
+  }
+  
+  
+  function rgb2lab(rgb){
+    var r = rgb[0] / 255,
+        g = rgb[1] / 255,
+        b = rgb[2] / 255,
+        x, y, z;
+  
+    r = (r > 0.04045) ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92;
+    g = (g > 0.04045) ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92;
+    b = (b > 0.04045) ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92;
+  
+    x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+    y = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 1.00000;
+    z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+  
+    x = (x > 0.008856) ? Math.pow(x, 1/3) : (7.787 * x) + 16/116;
+    y = (y > 0.008856) ? Math.pow(y, 1/3) : (7.787 * y) + 16/116;
+    z = (z > 0.008856) ? Math.pow(z, 1/3) : (7.787 * z) + 16/116;
+  
+    return [(116 * y) - 16, 500 * (x - y), 200 * (y - z)]
+  }
+  
+  // calculate the perceptual distance between colors in CIELAB
+  // https://github.com/THEjoezack/ColorMine/blob/master/ColorMine/ColorSpaces/Comparisons/Cie94Comparison.cs
+  
+  function deltaE(labA, labB){
+    var deltaL = labA[0] - labB[0];
+    var deltaA = labA[1] - labB[1];
+    var deltaB = labA[2] - labB[2];
+    var c1 = Math.sqrt(labA[1] * labA[1] + labA[2] * labA[2]);
+    var c2 = Math.sqrt(labB[1] * labB[1] + labB[2] * labB[2]);
+    var deltaC = c1 - c2;
+    var deltaH = deltaA * deltaA + deltaB * deltaB - deltaC * deltaC;
+    deltaH = deltaH < 0 ? 0 : Math.sqrt(deltaH);
+    var sc = 1.0 + 0.045 * c1;
+    var sh = 1.0 + 0.015 * c1;
+    var deltaLKlsl = deltaL / (1.0);
+    var deltaCkcsc = deltaC / (sc);
+    var deltaHkhsh = deltaH / (sh);
+    var i = deltaLKlsl * deltaLKlsl + deltaCkcsc * deltaCkcsc + deltaHkhsh * deltaHkhsh;
+    return i < 0 ? 0 : Math.sqrt(i);
+  }
+  
+
+
+/** Creates an object structure from the given color */
+function objectFromColor(r, g, b, a) {
+    
+    var objectr;
+
+    if (document.getElementById("tt").value) {
+        if (a < document.getElementById("tt").value * 255 /100) {
+            return null;
+        }
+    } else {
+        if (a < 128) {
+            return null;
+        }
+    }
 
     // find an object with approximately same color
     for (var i = 0; i < INPUT_LIST.length; i++) {
         var object = INPUT_LIST[i];
-
         if (object.type == ENTITY && !use_entities) {
             continue;
         }
 
-        // finds the closest euclidean distance
-        if (Math.pow(r - object.r, 2) + Math.pow(g - object.g, 2) + Math.pow(b - object.b, 2) < Math.pow(r - objectr.r, 2) + Math.pow(g - objectr.g, 2) + Math.pow(b - objectr.b, 2)) {
+        if (objectr) {
+        
+        if (document.getElementById("quant").selectedIndex == 1) {
+            var object_labcolor = rgb2lab([object.r, object.g, object.b])
+            var objectr_labcolor = rgb2lab([objectr.r, objectr.g, objectr.b])
+            var pixel_labcolor = rgb2lab([r, g, b])
+            if (deltaE(object_labcolor, pixel_labcolor) < deltaE(objectr_labcolor, pixel_labcolor)) {
+                objectr = object;
+            }
+        } else {
+            if (Math.pow(r - object.r, 2) + Math.pow(g - object.g, 2) + Math.pow(b - object.b, 2) < Math.pow(r - objectr.r, 2) + Math.pow(g - objectr.g, 2) + Math.pow(b - objectr.b, 2)) {
             objectr = object;
+            }
         }
 
         // old version
@@ -220,6 +318,9 @@ function objectFromColor(imageData, offset) {
             b > object.b - 10 && b < object.b + 10) {
             return object;
         }*/
+        } else {
+            objectr = object;
+        }
     }
 
     return objectr;
@@ -243,21 +344,22 @@ function hexToRgb(hex) {
     } : null;
 }
 
-function conversionStep() {
+function conversionStep(ctx) {
 
     conversionState.timeout = null; // the old timeout is done
     var canvas = conversionState.canvas;
-    var ctx = canvas.getContext("2d");
 
     var y = conversionState.currentY;
 
-    
-
     // -- look at one line and create the tiles and entities
 
-    var imageData = ctx.getImageData(0, y, Math.min(canvas.width, 10000), 1);
+    //var imageData = ctx.getImageData(0, y, Math.min(canvas.width, 10000), 1);
     for (var x = 0; x < canvas.width && x < 10000; x++) {
-        var object = objectFromColor(imageData, x * 4);
+        var r = ctx.data[(y * (ctx.width * 4)) + (x * 4) + 0];
+        var g = ctx.data[(y * (ctx.width * 4)) + (x * 4) + 1];
+        var b = ctx.data[(y * (ctx.width * 4)) + (x * 4) + 2];
+        var a = ctx.data[(y * (ctx.width * 4)) + (x * 4) + 3];
+        var object = objectFromColor(r, g, b, a);
 
         if (object) {
             if (object.type == ENTITY) {
@@ -282,14 +384,78 @@ function conversionStep() {
                 conversionState.tiles.push(tile);
             }
         }
+        if (object) {
+            conversionState.previewimagearray[(y * (ctx.width * 4)) + (x * 4) + 0] = object.r;
+            conversionState.previewimagearray[(y * (ctx.width * 4)) + (x * 4) + 1] = object.g;
+            conversionState.previewimagearray[(y * (ctx.width * 4)) + (x * 4) + 2] = object.b;
+            conversionState.previewimagearray[(y * (ctx.width * 4)) + (x * 4) + 3] = 255;
+        } else {
+            conversionState.previewimagearray[(y * (ctx.width * 4)) + (x * 4) + 0] = 0;
+            conversionState.previewimagearray[(y * (ctx.width * 4)) + (x * 4) + 1] = 0;
+            conversionState.previewimagearray[(y * (ctx.width * 4)) + (x * 4) + 2] = 0;
+            conversionState.previewimagearray[(y * (ctx.width * 4)) + (x * 4) + 3] = 0;
+        }
+        //Floyd Steinberg dithering algorithm
+        
+        if (document.getElementById("dithering").selectedIndex == 1) {
+        var colorerror = {"r": 0, "g": 0, "b": 0, "a": 0}
+        if (object) {
+            colorerror = {"r": r - object.r, "g": g - object.g, "b": b - object.b, "a": 0}
+        } else {
+            if (document.getElementById("dtt").value) {
+                colorerror.a = document.getElementById("dtt").value * 255 /100
+            } else {
+                colorerror.a = 128
+            }
+        }
+        //console.log(colorerror)
+        
+        //pixel to the right weight = 7
+        if (x + 1 < canvas.width) {
+            ctx.data[(y * (ctx.width * 4)) + ((x+1) * 4) + 0] += colorerror.r * (7/16)
+            ctx.data[(y * (ctx.width * 4)) + ((x+1) * 4) + 1] += colorerror.g * (7/16)
+            ctx.data[(y * (ctx.width * 4)) + ((x+1) * 4) + 2] += colorerror.b * (7/16)
+            ctx.data[(y * (ctx.width * 4)) + ((x+1) * 4) + 3] += colorerror.a * (7/16)
+        }
+        //console.log(y)
+        //console.log(canvas.height)
+        if (y+1 == canvas.height) {
+            console.log("continued")
+            continue
+        }
+        //console.log("continue invalid")
+
+        //pixel to the left-bottom weight = 3
+        if (x > 0) {
+            ctx.data[((y + 1) * (ctx.width * 4)) + ((x-1) * 4) + 0] += colorerror.r * (3/16)
+            ctx.data[((y + 1) * (ctx.width * 4)) + ((x-1) * 4) + 1] += colorerror.g * (3/16)
+            ctx.data[((y + 1) * (ctx.width * 4)) + ((x-1) * 4) + 2] += colorerror.b * (3/16)
+            ctx.data[((y + 1) * (ctx.width * 4)) + ((x-1) * 4) + 3] += colorerror.a * (3/16)
+            //console.log(colorerror.r * (3/16))
+        }
+        
+        //pixel to the bottom weight = 5
+        ctx.data[((y+1) * (ctx.width * 4)) + (x * 4) + 0] += colorerror.r * (5/16)
+        ctx.data[((y+1) * (ctx.width * 4)) + (x * 4) + 1] += colorerror.g * (5/16)
+        ctx.data[((y+1) * (ctx.width * 4)) + (x * 4) + 2] += colorerror.b * (5/16)
+        ctx.data[((y+1) * (ctx.width * 4)) + (x * 4) + 3] += colorerror.a * (5/16)
+
+        //pixel to the bottom right weight = 1
+        if (x + 1 < canvas.width) {
+            ctx.data[((y+1) * (ctx.width * 4)) + ((x+1) * 4) + 0] += colorerror.r * (1/16)
+            ctx.data[((y+1) * (ctx.width * 4)) + ((x+1) * 4) + 1] += colorerror.g * (1/16)
+            ctx.data[((y+1) * (ctx.width * 4)) + ((x+1) * 4) + 2] += colorerror.b * (1/16)
+            ctx.data[((y+1) * (ctx.width * 4)) + ((x+1) * 4) + 3] += colorerror.a * (1/16)
+        }
+    }
     }
 
+    conversionState.currentY++;
     if ((conversionState.currentY < canvas.height) &&
         (conversionState.currentY < 10000)) {
 
         // need another loop
-        conversionState.currentY++;
-        conversionState.timeout = setTimeout(conversionStep, 10);
+        conversionState.timeout = setTimeout((conversionStep(ctx)), 10);
 
         // do the progress bar
         //var bar = document.getElementById("bar");
@@ -308,7 +474,7 @@ function conversionStep() {
                 {
                     "signal": {
                         "type": "item",
-                        "name": "transport-belt"
+                        "name": "signal-everything"
                     },
                     "index": 1
                 }
@@ -318,6 +484,10 @@ function conversionStep() {
             } };
 
         // finalize
+        var previewctx = conversionState.previewcanvas.getContext("2d");
+        const imgData = previewctx.createImageData(conversionState.previewcanvas.width, conversionState.previewcanvas.height);
+        imgData.data.set(conversionState.previewimagearray);
+        previewctx.putImageData(imgData, 0, 0)
         encode(JSON.stringify(result, null, 4));
     }
 }
@@ -326,8 +496,14 @@ function conversionStep() {
 function imageLoaded(e) {
   console.log("Loaded");
 
-  resolution_x = document.getElementById("resx").value
-  resolution_y = document.getElementById("resy").value
+    resolution_x = document.getElementById("resx").value
+    resolution_y = document.getElementById("resy").value
+
+  if (document.getElementById("use-entities").checked == false) {
+    use_entities = false
+  } else {
+    use_entities = true
+  }
 
   INPUT_LIST = []
     var childelements = document.getElementById("itemlist").children
@@ -351,25 +527,52 @@ function imageLoaded(e) {
   var img = e.target;
 
   var canvas = $('#testCanvas')[0];
+  var preview = $('#preview')[0];
+  var scale = document.getElementById("scale").value
   if (resolution_x && resolution_y) {
-        canvas.width = resolution_x;      // set canvas size big enough for the image
-        canvas.height = resolution_y;
+        if (scale) {
+            canvas.width = resolution_x * scale;
+            canvas.height = resolution_y * scale;
+            preview.width = resolution_x * scale;
+            preview.height = resolution_y * scale;
+        } else {
+            canvas.width = resolution_x;
+            canvas.height = resolution_y;
+            preview.width = resolution_x;
+            preview.height = resolution_y;
+        }
   } else {
-      canvas.width = img.width;      // set canvas size big enough for the image
-      canvas.height = img.height;
+    if (scale) {
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        preview.width = img.width * scale;
+        preview.height = img.height * scale;
+    } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        preview.width = img.width;
+        preview.height = img.height;
+    }
   }
 
   var ctx = canvas.getContext("2d");
-  if (resolution_x && resolution_y) {
-        ctx.drawImage(img, 0, 0, resolution_x, resolution_y);         // draw the image
-  } else {
-        ctx.drawImage(img, 0, 0);         // draw the image
+  //if (resolution_x && resolution_y) {
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);         // draw the image
+  if (document.getElementById("contrast").value) {
+    var contrastimg = contrastImage(ctx.getImageData(0, 0, canvas.width, canvas.height), document.getElementById("contrast").value)
+    ctx.putImageData(contrastimg, 0, 0);
   }
+  //}// else {
+  //      ctx.drawImage(img, 0, 0);         // draw the image
+  //}
 
   conversionState.filename = $('#inputImage')[0].files[0].name;
   if (!conversionState.filename)
       conversionState.filename = "unnamed image";
   conversionState.canvas = canvas;
+  conversionState.previewcanvas = preview;
+  //conversionState.previewimage = preview.getContext("2d").createImageData(preview.width, preview.height);
+  conversionState.previewimagearray = new Uint8ClampedArray(canvas.width * canvas.height * 4)
   conversionState.currentY = 0;
   conversionState.blueprintStruct = 0;
   conversionState.entities = [];
@@ -379,7 +582,9 @@ function imageLoaded(e) {
       conversionState.timeout = null;
   }
 
-  conversionState.timeout = setTimeout(conversionStep, 100);
+  
+  var imgparse = canvas.getContext("2d")
+  conversionState.timeout = setTimeout(conversionStep(imgparse.getImageData(0, 0, canvas.width, canvas.height)), 100);
 }
 
 function createImage(loaded) {
